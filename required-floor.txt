@@ -11,6 +11,7 @@ gopls
 typescript-language-server
 typescript
 pyright
+rust-analyzer
 gh
 # backend runtimes (auto-adopted dependencies)
 go
