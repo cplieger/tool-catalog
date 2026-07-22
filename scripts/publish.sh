@@ -5,9 +5,10 @@
 # ./tool-catalog.json without touching GitHub releases.
 #
 # Registry tarballs are fetched BY COMMIT (the tag's dereferenced commit):
-# git content addressing is the integrity anchor, so no tarball checksum is
-# needed and a moved tag cannot silently change what a given run ingested —
-# the release notes record the exact refs.
+# git content addressing keeps the extracted tree stable while archive bytes
+# may vary, so no tarball checksum is kept — integrity rests on TLS to
+# GitHub, and the release notes record the exact tags AND commits ingested,
+# so a moved upstream tag is visible and re-publishes rather than skips.
 #
 # Environment:
 #   TOOLCATALOG_VERSION  (required) toolcatalog lane tag, e.g. v2.1.0
@@ -37,14 +38,17 @@ resolve() {
 read -r MISE_REF MISE_COMMIT < <(resolve jdx/mise)
 read -r AQUA_REF AQUA_COMMIT < <(resolve aquaproj/aqua-registry)
 REFS="mise=${MISE_REF},aqua=${AQUA_REF}"
-STAMP="refs: ${REFS} lane: ${TOOLCATALOG_VERSION}"
+# The idempotence stamp carries tags AND commits: a moved upstream tag
+# (same name, different commit) must re-publish, never skip.
+STAMP="refs: mise=${MISE_REF}@${MISE_COMMIT},aqua=${AQUA_REF}@${AQUA_COMMIT} lane: ${TOOLCATALOG_VERSION}"
 echo "publish: ${STAMP}"
-echo "publish: mise ${MISE_COMMIT}, aqua ${AQUA_COMMIT}"
 
-# Idempotent daily cron: skip when the newest release already carries these
-# registry refs at this lane version (its notes embed the STAMP line).
+# Idempotent daily cron: skip when the newest release already carries this
+# exact stamp (tags + commits + lane). The marker read is hardened against
+# CRLF from web-UI note edits and against multiple refs: lines; any marker
+# breakage fails SAFE (a duplicate publish, never a skipped needed one).
 if [ "$DRY_RUN" != "1" ]; then
-  last=$(gh release view --repo "$REPO" --json body --jq .body 2>/dev/null | grep -F 'refs: ' || true)
+  last=$(gh release view --repo "$REPO" --json body --jq .body 2>/dev/null | tr -d '\r' | grep -m1 -F 'refs: ' || true)
   if [ "$last" = "$STAMP" ]; then
     echo "publish: up to date, nothing to do"
     exit 0
@@ -53,11 +57,14 @@ fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-mkdir -p "$WORK/registries"
+# Fixed extraction destinations (--strip-components=1): the tarball's
+# top-level directory name is codeload convention, not a documented
+# contract, so do not depend on its exact shape.
+mkdir -p "$WORK/mise" "$WORK/aqua"
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 20 --max-time 300 --retry 3 --retry-delay 5 -fsSL \
-  "https://codeload.github.com/jdx/mise/tar.gz/${MISE_COMMIT}" | tar -xz -C "$WORK/registries"
+  "https://codeload.github.com/jdx/mise/tar.gz/${MISE_COMMIT}" | tar -xz --strip-components=1 -C "$WORK/mise"
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 20 --max-time 300 --retry 3 --retry-delay 5 -fsSL \
-  "https://codeload.github.com/aquaproj/aqua-registry/tar.gz/${AQUA_COMMIT}" | tar -xz -C "$WORK/registries"
+  "https://codeload.github.com/aquaproj/aqua-registry/tar.gz/${AQUA_COMMIT}" | tar -xz --strip-components=1 -C "$WORK/aqua"
 
 # Compile (the lane embeds its base overlays, both registry LICENSE texts,
 # and a generated timestamp) and verify the engine floor: the seed template
@@ -65,8 +72,8 @@ curl --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 20 --ma
 # required sets stay in each consumer (verified at image build and again at
 # every runtime refresh).
 $TOOLCATALOG_RUN \
-  -mise "$WORK/registries/mise-${MISE_COMMIT}/registry" \
-  -aqua "$WORK/registries/aqua-registry-${AQUA_COMMIT}/pkgs" \
+  -mise "$WORK/mise/registry" \
+  -aqua "$WORK/aqua/pkgs" \
   -refs "$REFS" \
   -out "$WORK/tool-catalog.json"
 $TOOLCATALOG_RUN verify -catalog "$WORK/tool-catalog.json" -require "$FLOOR"
@@ -84,7 +91,23 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   TAG="${TAG}.$(date -u +%H%M)" # same-day re-run with changed refs
 fi
 
+# --latest is explicit: every release here tags the same default-branch
+# commit with non-semver dated tags, exactly the shape where GitHub's
+# automatic latest selection (created_at + semver tie-breakers) is
+# degenerate. The consumer contract IS the latest pointer; never leave
+# it to the automatic mapping.
 # shellcheck disable=SC2016 # the backticks are a markdown code span in the notes, not a command substitution
 NOTES=$(printf '%s\nentries: %s\n\nCompiled from the mise registry and the aqua registry (both MIT; license texts embedded in the artifact). Consumers fetch `releases/latest/download/tool-catalog.json`.\n' "$STAMP" "$ENTRIES")
-gh release create "$TAG" "$WORK/tool-catalog.json" --repo "$REPO" --title "$TAG" --notes "$NOTES"
-echo "publish: released ${TAG} (${ENTRIES} entries)"
+gh release create "$TAG" "$WORK/tool-catalog.json" --repo "$REPO" --title "$TAG" --latest --notes "$NOTES"
+
+# Post-publish contract check: the stable latest URL must now serve THIS
+# release's asset. Fail loudly if the latest pointer did not move — a
+# broken pointer is exactly the failure consumers cannot see.
+LOCATION=$(curl -sI -o /dev/null -w '%{redirect_url}' "https://github.com/${REPO}/releases/latest/download/tool-catalog.json")
+case "$LOCATION" in
+  *"/${TAG}/"*) echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified" ;;
+  *)
+    echo "publish: ERROR released ${TAG} but the latest download URL resolves to: ${LOCATION}" >&2
+    exit 1
+    ;;
+esac

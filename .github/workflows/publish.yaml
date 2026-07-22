@@ -22,8 +22,20 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write # gh release create (tag + assets)
+      actions: write # workflow self-keepalive (see the step below)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Keepalive: GitHub disables scheduled workflows after 60 days
+      # without repository activity, and cron runs themselves do not
+      # count as activity. This repo's only routine commits are rare
+      # Renovate lane bumps, so every run re-enables the workflow to
+      # reset the inactivity clock (the standard keepalive pattern).
+      # Silent publisher death is the failure mode consumers cannot
+      # see: they would keep fetching an aging catalog forever.
+      - name: Keepalive (reset the 60-day scheduled-workflow timer)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/publish.yaml/enable"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "stable"
