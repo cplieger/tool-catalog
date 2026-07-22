@@ -63,6 +63,6 @@ jobs:
       - name: Compile and publish
         env:
           GH_TOKEN: ${{ github.token }}
-          # renovate: datasource=go depName=github.com/cplieger/toolbelt/cmd/toolcatalog/v2
-          TOOLCATALOG_VERSION: v2.1.0
+          # renovate: datasource=go depName=github.com/cplieger/toolbelt/v2
+          TOOLCATALOG_VERSION: v2.2.1
         run: bash scripts/publish.sh

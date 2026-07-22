@@ -17,7 +17,7 @@
 # than skips.
 #
 # Environment:
-#   TOOLCATALOG_VERSION  (required) toolcatalog lane tag, e.g. v2.1.0
+#   TOOLCATALOG_VERSION  (required) toolbelt tag the compiler runs at, e.g. v2.3.0
 #   TOOLCATALOG_RUN      (optional) override the compiler invocation; used by
 #                        local simulation to run a checked-out lane instead of
 #                        the published module
@@ -25,8 +25,8 @@
 #                        to ./tool-catalog.json and skip release creation
 set -euo pipefail
 
-TOOLCATALOG_VERSION="${TOOLCATALOG_VERSION:?set TOOLCATALOG_VERSION (toolcatalog lane tag, e.g. v2.1.0)}"
-TOOLCATALOG_RUN="${TOOLCATALOG_RUN:-go run github.com/cplieger/toolbelt/cmd/toolcatalog/v2@${TOOLCATALOG_VERSION}}"
+TOOLCATALOG_VERSION="${TOOLCATALOG_VERSION:?set TOOLCATALOG_VERSION (toolbelt tag, e.g. v2.3.0)}"
+TOOLCATALOG_RUN="${TOOLCATALOG_RUN:-go run github.com/cplieger/toolbelt/v2/cmd/toolcatalog@${TOOLCATALOG_VERSION}}"
 DRY_RUN="${DRY_RUN:-0}"
 REPO="${GITHUB_REPOSITORY:-cplieger/tool-catalog}"
 # Absolute: TOOLCATALOG_RUN may change the compiler's working directory
