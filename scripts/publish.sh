@@ -1,14 +1,20 @@
 #!/bin/bash
-# Compile the tool catalog from the latest mise + aqua registry releases and
-# publish it as a dated GitHub release. Runs daily from
-# .github/workflows/publish.yaml; run locally with DRY_RUN=1 to produce
-# ./tool-catalog.json without touching GitHub releases.
+# Compile the tool catalog from the PINNED mise + aqua registry refs in
+# registries.env and publish it as a dated GitHub release. Renovate bumps
+# the pins and the merge triggers .github/workflows/publish.yaml (push
+# trigger), so releases follow upstream at the Renovate sweep cadence; the
+# workflow's daily cron is a self-heal retry only (the idempotence stamp
+# below makes it a no-op while the newest release already matches the
+# pins). Run locally with DRY_RUN=1 to produce ./tool-catalog.json without
+# touching GitHub releases.
 #
-# Registry tarballs are fetched BY COMMIT (the tag's dereferenced commit):
-# git content addressing keeps the extracted tree stable while archive bytes
-# may vary, so no tarball checksum is kept — integrity rests on TLS to
-# GitHub, and the release notes record the exact tags AND commits ingested,
-# so a moved upstream tag is visible and re-publishes rather than skips.
+# Registry tarballs are fetched BY COMMIT (the tag's dereferenced commit,
+# pinned next to the tag): git content addressing keeps the extracted tree
+# stable while archive bytes may vary, so no tarball checksum is kept —
+# integrity rests on TLS to GitHub plus the reviewed pin, and the release
+# notes record the exact tags AND commits ingested, so a moved upstream
+# tag lands as a visible digest-only Renovate PR and re-publishes rather
+# than skips.
 #
 # Environment:
 #   TOOLCATALOG_VERSION  (required) toolcatalog lane tag, e.g. v2.1.0
@@ -25,18 +31,23 @@ DRY_RUN="${DRY_RUN:-0}"
 REPO="${GITHUB_REPOSITORY:-cplieger/tool-catalog}"
 # Absolute: TOOLCATALOG_RUN may change the compiler's working directory
 # (the local-simulation `go run -C <lane> .` case).
-FLOOR="$(cd "$(dirname "$0")/.." && pwd)/required-floor.txt"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+FLOOR="$ROOT/required-floor.txt"
 
-# resolve <owner/repo> -> "latest-release-tag dereferenced-commit"
-resolve() {
-  local tag commit
-  tag=$(gh api "repos/$1/releases/latest" --jq .tag_name)
-  commit=$(gh api "repos/$1/commits/${tag}" --jq .sha)
-  printf '%s %s\n' "$tag" "$commit"
-}
-
-read -r MISE_REF MISE_COMMIT < <(resolve jdx/mise)
-read -r AQUA_REF AQUA_COMMIT < <(resolve aquaproj/aqua-registry)
+# Pinned registry refs (Renovate-bumped tag+commit pairs; see the file's
+# header). Guard every value: a malformed pin must fail here, loudly,
+# not as a 404 mid-fetch or a tarball of the wrong tree.
+# shellcheck source=/dev/null
+. "$ROOT/registries.env"
+for v in MISE_REF MISE_COMMIT AQUA_REF AQUA_COMMIT; do
+  [ -n "${!v:-}" ] || { echo "publish: ERROR registries.env does not set ${v}" >&2; exit 1; }
+done
+for v in MISE_COMMIT AQUA_COMMIT; do
+  if ! [[ "${!v}" =~ ^[a-f0-9]{40}$ ]]; then
+    echo "publish: ERROR ${v}='${!v}' is not a 40-hex commit" >&2
+    exit 1
+  fi
+done
 REFS="mise=${MISE_REF},aqua=${AQUA_REF}"
 # The idempotence stamp carries tags AND commits: a moved upstream tag
 # (same name, different commit) must re-publish, never skip.
