@@ -3,15 +3,24 @@
 [![License](https://img.shields.io/github/license/cplieger/tool-catalog)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cplieger/tool-catalog/badge)](https://scorecard.dev/viewer/?uri=github.com/cplieger/tool-catalog)
 
-> Daily-compiled tool catalog for the [toolbelt](https://github.com/cplieger/toolbelt) engine
+> Continuously published tool catalog for the [toolbelt](https://github.com/cplieger/toolbelt) engine
 
-A scheduled workflow joins the [mise registry](https://github.com/jdx/mise)
+The publish workflow joins the [mise registry](https://github.com/jdx/mise)
 (tool names, descriptions, aliases, preferred install backends) with the
 [aqua registry](https://github.com/aquaproj/aqua-registry) (per-package binary
 install definitions with checksum sources), compiles them into one
 `tool-catalog.json` with toolbelt's `toolcatalog` compiler, verifies that the
 engine's required floor of tools resolves for linux amd64 and arm64, and
 publishes the result as a dated release.
+
+Both registries are pinned by tag and commit in `registries.env`.
+[Renovate](https://docs.renovatebot.com/) bumps the pins as upstream
+releases, the bump automerges through the validate gate, and the merge
+triggers a publish — so releases follow upstream within hours, each one
+traceable to an exact reviewed pin. A daily scheduled run acts as a
+self-heal retry: it re-publishes only when the newest release does not
+match the pins (a previously failed run), and exits idempotently
+otherwise.
 
 Consumers fetch the newest artifact from a stable URL:
 
@@ -32,12 +41,13 @@ knowledge instead of breaking installs.
   registry refs it was compiled from, both registries' MIT license texts, and
   a generation timestamp.
 
-Each release's notes record the exact registry tags and the commits they
-dereferenced to at compile time. Registry tarballs are fetched by commit, so
-a moved tag cannot silently change what a run ingested.
+Each release's notes record the exact registry tags and commits it was
+compiled from (the pins in `registries.env` at that commit). Registry
+tarballs are fetched by commit, so a moved upstream tag cannot silently
+change what a run ingested — it surfaces as a digest-only Renovate PR.
 
-The publish run is idempotent: when neither registry has released since the
-newest catalog, the run exits without cutting a release.
+The publish run is idempotent: when the newest release already matches the
+pinned refs and compiler version, the run exits without cutting a release.
 
 ## Building locally
 
@@ -45,9 +55,9 @@ newest catalog, the run exits without cutting a release.
 TOOLCATALOG_VERSION=v2.1.0 DRY_RUN=1 bash scripts/publish.sh
 ```
 
-`DRY_RUN=1` compiles and verifies against the latest registry releases and
-writes `./tool-catalog.json` without creating a GitHub release. Requires the
-`gh` CLI (registry resolution), `curl`, `jq`, and a Go toolchain.
+`DRY_RUN=1` compiles and verifies the pinned registry refs and writes
+`./tool-catalog.json` without creating a GitHub release. Requires `curl`,
+`jq`, and a Go toolchain (the `gh` CLI is only needed for publishing).
 
 ## License
 

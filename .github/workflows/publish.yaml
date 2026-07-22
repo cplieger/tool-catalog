@@ -1,11 +1,25 @@
-# Daily catalog publish: compile the latest mise + aqua registries into
-# tool-catalog.json and cut a dated release. The heavy lifting (registry
-# resolution, fetch-by-commit, compile, verify, skip-if-unchanged, release)
-# lives in scripts/publish.sh so it runs identically in CI and locally
-# (DRY_RUN=1). Consumers fetch releases/latest/download/tool-catalog.json.
+# Catalog publish: compile the PINNED mise + aqua registry refs
+# (registries.env) into tool-catalog.json and cut a dated release. The
+# heavy lifting (pin validation, fetch-by-commit, compile, verify,
+# skip-if-unchanged, release) lives in scripts/publish.sh so it runs
+# identically in CI and locally (DRY_RUN=1). Consumers fetch
+# releases/latest/download/tool-catalog.json.
+#
+# Trigger model: Renovate bumps registries.env (and the lane pin below),
+# the automerged PR lands on main, and the push trigger publishes — a
+# release follows every upstream registry update at the Renovate sweep
+# cadence. The daily cron is a SELF-HEAL retry only: publish.sh's
+# idempotence stamp makes it a no-op while the newest release already
+# matches the pins, and it re-publishes exactly when a push-triggered
+# run failed mid-flight (GitHub outage, transient fetch failure).
 name: Publish
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - registries.env
+      - .github/workflows/publish.yaml
   schedule:
     - cron: "17 5 * * *"
   workflow_dispatch:
@@ -31,11 +45,13 @@ jobs:
           persist-credentials: false
       # Keepalive: GitHub disables scheduled workflows after 60 days
       # without repository activity, and cron runs themselves do not
-      # count as activity. This repo's only routine commits are rare
-      # Renovate lane bumps, so every run re-enables the workflow to
-      # reset the inactivity clock (the standard keepalive pattern).
-      # Silent publisher death is the failure mode consumers cannot
-      # see: they would keep fetching an aging catalog forever.
+      # count as activity. Renovate's registry-pin bumps normally keep
+      # the repo active, but if both upstreams (or Renovate itself)
+      # went quiet for 60 days the self-heal cron would die silently,
+      # so every run re-enables the workflow to reset the inactivity
+      # clock (the standard keepalive pattern). Silent publisher death
+      # is the failure mode consumers cannot see: they would keep
+      # fetching an aging catalog forever.
       - name: Keepalive (reset the 60-day scheduled-workflow timer)
         env:
           GH_TOKEN: ${{ github.token }}
