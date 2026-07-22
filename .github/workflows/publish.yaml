@@ -25,6 +25,10 @@ jobs:
       actions: write # workflow self-keepalive (see the step below)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes with checkout-persisted credentials (gh uses
+          # the GH_TOKEN env); do not leave the token in .git/config.
+          persist-credentials: false
       # Keepalive: GitHub disables scheduled workflows after 60 days
       # without repository activity, and cron runs themselves do not
       # count as activity. This repo's only routine commits are rare
