@@ -40,7 +40,10 @@ FLOOR="$ROOT/required-floor.txt"
 # shellcheck source=/dev/null
 . "$ROOT/registries.env"
 for v in MISE_REF MISE_COMMIT AQUA_REF AQUA_COMMIT; do
-  [ -n "${!v:-}" ] || { echo "publish: ERROR registries.env does not set ${v}" >&2; exit 1; }
+  [ -n "${!v:-}" ] || {
+    echo "publish: ERROR registries.env does not set ${v}" >&2
+    exit 1
+  }
 done
 for v in MISE_COMMIT AQUA_COMMIT; do
   if ! [[ "${!v}" =~ ^[a-f0-9]{40}$ ]]; then
@@ -116,9 +119,9 @@ gh release create "$TAG" "$WORK/tool-catalog.json" --repo "$REPO" --title "$TAG"
 # broken pointer is exactly the failure consumers cannot see.
 LOCATION=$(curl -sI -o /dev/null -w '%{redirect_url}' "https://github.com/${REPO}/releases/latest/download/tool-catalog.json")
 case "$LOCATION" in
-  *"/${TAG}/"*) echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified" ;;
-  *)
-    echo "publish: ERROR released ${TAG} but the latest download URL resolves to: ${LOCATION}" >&2
-    exit 1
-    ;;
+*"/${TAG}/"*) echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified" ;;
+*)
+  echo "publish: ERROR released ${TAG} but the latest download URL resolves to: ${LOCATION}" >&2
+  exit 1
+  ;;
 esac
