@@ -52,7 +52,7 @@ pinned refs and compiler version, the run exits without cutting a release.
 ## Building locally
 
 ```sh
-TOOLCATALOG_VERSION=v2.1.0 DRY_RUN=1 bash scripts/publish.sh
+TOOLCATALOG_VERSION=v2.2.1 DRY_RUN=1 bash scripts/publish.sh
 ```
 
 `DRY_RUN=1` compiles and verifies the pinned registry refs and writes
