@@ -119,9 +119,9 @@ gh release create "$TAG" "$WORK/tool-catalog.json" --repo "$REPO" --title "$TAG"
 # broken pointer is exactly the failure consumers cannot see.
 LOCATION=$(curl -sI -o /dev/null -w '%{redirect_url}' "https://github.com/${REPO}/releases/latest/download/tool-catalog.json")
 case "$LOCATION" in
-*"/${TAG}/"*) echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified" ;;
-*)
-  echo "publish: ERROR released ${TAG} but the latest download URL resolves to: ${LOCATION}" >&2
-  exit 1
-  ;;
+  *"/${TAG}/"*) echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified" ;;
+  *)
+    echo "publish: ERROR released ${TAG} but the latest download URL resolves to: ${LOCATION}" >&2
+    exit 1
+    ;;
 esac
