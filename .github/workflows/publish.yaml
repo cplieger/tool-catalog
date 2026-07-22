@@ -1,0 +1,36 @@
+# Daily catalog publish: compile the latest mise + aqua registries into
+# tool-catalog.json and cut a dated release. The heavy lifting (registry
+# resolution, fetch-by-commit, compile, verify, skip-if-unchanged, release)
+# lives in scripts/publish.sh so it runs identically in CI and locally
+# (DRY_RUN=1). Consumers fetch releases/latest/download/tool-catalog.json.
+name: Publish
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # gh release create (tag + assets)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "stable"
+          cache: false # nothing to key a module cache on (no go.mod here)
+      - name: Compile and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=go depName=github.com/cplieger/toolbelt/cmd/toolcatalog/v2
+          TOOLCATALOG_VERSION: v2.1.0
+        run: bash scripts/publish.sh

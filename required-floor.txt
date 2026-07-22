@@ -1,0 +1,18 @@
+# Engine-floor tool names every published catalog MUST resolve, verified by
+# `toolcatalog verify` before a release is cut. This is the toolbelt engine's
+# own floor: the DefaultSeed template names plus the backend runtimes the
+# engine auto-adopts as dependencies (npm -> node, pip -> uv, go: -> go).
+# App-specific required sets (e.g. a consumer image's linter toolbox) are NOT
+# listed here — each consumer verifies its own list at image build and at
+# every runtime catalog refresh.
+#
+# seed (toolbelt.DefaultSeed)
+gopls
+typescript-language-server
+typescript
+pyright
+gh
+# backend runtimes (auto-adopted dependencies)
+go
+node
+uv
