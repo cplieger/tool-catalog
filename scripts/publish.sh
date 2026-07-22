@@ -22,7 +22,9 @@ TOOLCATALOG_VERSION="${TOOLCATALOG_VERSION:?set TOOLCATALOG_VERSION (toolcatalog
 TOOLCATALOG_RUN="${TOOLCATALOG_RUN:-go run github.com/cplieger/toolbelt/cmd/toolcatalog/v2@${TOOLCATALOG_VERSION}}"
 DRY_RUN="${DRY_RUN:-0}"
 REPO="${GITHUB_REPOSITORY:-cplieger/tool-catalog}"
-FLOOR="$(dirname "$0")/../required-floor.txt"
+# Absolute: TOOLCATALOG_RUN may change the compiler's working directory
+# (the local-simulation `go run -C <lane> .` case).
+FLOOR="$(cd "$(dirname "$0")/.." && pwd)/required-floor.txt"
 
 # resolve <owner/repo> -> "latest-release-tag dereferenced-commit"
 resolve() {
