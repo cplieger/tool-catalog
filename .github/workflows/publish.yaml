@@ -8,7 +8,11 @@
 # Trigger model: Renovate bumps registries.env (and the lane pin below),
 # the automerged PR lands on main, and the push trigger publishes — a
 # release follows every upstream registry update at the Renovate sweep
-# cadence. The daily cron is a SELF-HEAL retry only: publish.sh's
+# cadence. Merges touching publish.sh or required-floor.txt also run:
+# a floor change re-publishes (the floor digest is part of the
+# idempotence stamp, so the new floor is verified on merge, not at the
+# next pin bump); a script-only change exercises the script and no-ops
+# at the stamp. The daily cron is a SELF-HEAL retry only: publish.sh's
 # idempotence stamp makes it a no-op while the newest release already
 # matches the pins, and it re-publishes exactly when a push-triggered
 # run failed mid-flight (GitHub outage, transient fetch failure).
@@ -20,6 +24,8 @@ on:
     paths:
       - registries.env
       - .github/workflows/publish.yaml
+      - scripts/publish.sh
+      - required-floor.txt
   schedule:
     - cron: "17 5 * * *"
   workflow_dispatch:

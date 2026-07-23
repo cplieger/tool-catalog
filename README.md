@@ -47,7 +47,8 @@ tarballs are fetched by commit, so a moved upstream tag cannot silently
 change what a run ingested — it surfaces as a digest-only Renovate PR.
 
 The publish run is idempotent: when the newest release already matches the
-pinned refs and compiler version, the run exits without cutting a release.
+pinned refs, compiler version, and required floor, the run exits without
+cutting a release.
 
 ## Building locally
 
