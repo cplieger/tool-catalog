@@ -52,9 +52,13 @@ for v in MISE_COMMIT AQUA_COMMIT; do
   fi
 done
 REFS="mise=${MISE_REF},aqua=${AQUA_REF}"
-# The idempotence stamp carries tags AND commits: a moved upstream tag
-# (same name, different commit) must re-publish, never skip.
-STAMP="refs: mise=${MISE_REF}@${MISE_COMMIT},aqua=${AQUA_REF}@${AQUA_COMMIT} lane: ${TOOLCATALOG_VERSION}"
+# The idempotence stamp carries tags AND commits (a moved upstream tag —
+# same name, different commit — must re-publish, never skip), the compiler
+# version, and a digest of the required floor: a floor change must
+# re-publish so the merge verifies the new floor immediately, instead of
+# hiding a regression until the next pin bump fails days later.
+FLOOR_DIGEST=$(sha256sum "$FLOOR" | cut -c1-12)
+STAMP="refs: mise=${MISE_REF}@${MISE_COMMIT},aqua=${AQUA_REF}@${AQUA_COMMIT} lane: ${TOOLCATALOG_VERSION} floor: ${FLOOR_DIGEST}"
 echo "publish: ${STAMP}"
 
 # Idempotent daily cron: skip when the newest release already carries this
