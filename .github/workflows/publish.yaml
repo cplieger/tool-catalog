@@ -70,5 +70,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           # renovate: datasource=go depName=github.com/cplieger/toolbelt/v2
-          TOOLCATALOG_VERSION: v2.2.1
+          TOOLCATALOG_VERSION: v2.2.2
         run: bash scripts/publish.sh
