@@ -1,6 +1,7 @@
 # tool-catalog
 
 [![License](https://img.shields.io/github/license/cplieger/tool-catalog)](LICENSE)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13871/badge)](https://www.bestpractices.dev/projects/13871)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cplieger/tool-catalog/badge)](https://scorecard.dev/viewer/?uri=github.com/cplieger/tool-catalog)
 
 > Continuously published tool catalog for the [toolbelt](https://github.com/cplieger/toolbelt) engine
