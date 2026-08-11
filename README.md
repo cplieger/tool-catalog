@@ -60,7 +60,7 @@ This project was built with AI-assisted tooling using [Claude](https://claude.co
 
 ## License
 
-This repository's code is licensed under [GPL-3.0](LICENSE). The published
+This repository's code is licensed under [Apache-2.0](LICENSE). The published
 `tool-catalog.json` embeds data derived from the mise and aqua registries
 (both MIT); their copyright and permission notices travel inside the artifact
 itself, as MIT requires.
