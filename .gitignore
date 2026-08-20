@@ -1,8 +1,7 @@
 # DRY_RUN artifact from scripts/publish.sh
 /tool-catalog.json
 
-# Kiro skill artifacts (app-review, code-review, judgement, steering-maintenance)
+# Kiro skill artifacts (app-review, judgement, steering-maintenance)
 **/.app-review/
-**/.code-review/
 **/.judgement/
 **/.steering-maintenance/
