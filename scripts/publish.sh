@@ -17,7 +17,8 @@
 # than skips.
 #
 # Environment:
-#   TOOLCATALOG_VERSION  (required) toolbelt tag the compiler runs at, e.g. v2.3.0
+#   TOOLCATALOG_VERSION  (required) toolbelt tag the compiler runs at, e.g. v3.0.1;
+#                        the module path's major suffix is derived from it
 #   TOOLCATALOG_RUN      (optional) override the compiler invocation; used by
 #                        local simulation to run a checked-out lane instead of
 #                        the published module
@@ -25,8 +26,24 @@
 #                        to ./tool-catalog.json and skip release creation
 set -euo pipefail
 
-TOOLCATALOG_VERSION="${TOOLCATALOG_VERSION:?set TOOLCATALOG_VERSION (toolbelt tag, e.g. v2.3.0)}"
-TOOLCATALOG_RUN="${TOOLCATALOG_RUN:-go run github.com/cplieger/toolbelt/v2/cmd/toolcatalog@${TOOLCATALOG_VERSION}}"
+TOOLCATALOG_VERSION="${TOOLCATALOG_VERSION:?set TOOLCATALOG_VERSION (toolbelt tag, e.g. v3.0.1)}"
+# Go carries the major version in the module PATH from v2 on, so the suffix is
+# DERIVED from the pin rather than written beside it. Renovate bumps this pin
+# across a major boundary (it moved v2.5.2 -> v3.0.1 on 2026-08-21) and cannot
+# rewrite a hardcoded path, so a written suffix asks the proxy for
+# toolbelt/v2@v3.0.1 — an invalid combination that stalled every publish until
+# the two could no longer disagree. Same fail-loudly posture as the pin guards
+# below: a tag this cannot parse stops here, not at a 404 mid-fetch.
+TOOLCATALOG_MAJOR="${TOOLCATALOG_VERSION%%.*}"
+case "$TOOLCATALOG_MAJOR" in
+  v0 | v1) TOOLCATALOG_MODULE="github.com/cplieger/toolbelt" ;;
+  v[1-9]*) TOOLCATALOG_MODULE="github.com/cplieger/toolbelt/${TOOLCATALOG_MAJOR}" ;;
+  *)
+    echo "publish: ERROR TOOLCATALOG_VERSION='${TOOLCATALOG_VERSION}' is not a vN tag" >&2
+    exit 1
+    ;;
+esac
+TOOLCATALOG_RUN="${TOOLCATALOG_RUN:-go run ${TOOLCATALOG_MODULE}/cmd/toolcatalog@${TOOLCATALOG_VERSION}}"
 DRY_RUN="${DRY_RUN:-0}"
 REPO="${GITHUB_REPOSITORY:-cplieger/tool-catalog}"
 # Absolute: TOOLCATALOG_RUN may change the compiler's working directory

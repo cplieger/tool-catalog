@@ -69,6 +69,9 @@ jobs:
       - name: Compile and publish
         env:
           GH_TOKEN: ${{ github.token }}
-          # renovate: datasource=go depName=github.com/cplieger/toolbelt/v2
+          # The depName tracks the CURRENT major; publish.sh derives the module
+          # path's suffix from the tag, so a Renovate bump across a major
+          # boundary needs no second edit here.
+          # renovate: datasource=go depName=github.com/cplieger/toolbelt/v3
           TOOLCATALOG_VERSION: v3.0.1
         run: bash scripts/publish.sh
