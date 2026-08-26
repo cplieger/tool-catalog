@@ -1,19 +1,27 @@
 # Engine-floor tool names every published catalog MUST resolve, verified by
-# `toolcatalog verify` before a release is cut. This is the toolbelt engine's
-# own floor: the DefaultSeed template names plus the backend runtimes the
-# engine auto-adopts as dependencies (npm -> node, pip -> uv, go: -> go).
-# App-specific required sets (e.g. a consumer image's linter toolbox) are NOT
-# listed here — each consumer verifies its own list at image build and at
-# every runtime catalog refresh.
+# `toolcatalog verify` before a release is cut.
 #
-# seed (toolbelt.DefaultSeed)
-gopls
-typescript-language-server
-typescript
-pyright
-rust-analyzer
-gh
+# This is the floor for a GENERAL catalog: the tools the toolbelt engine itself
+# adopts as backends for its own source kinds. Nothing here is a product's
+# choice -- every name resolves from mise/aqua registry data alone.
+#
+#   npm:   -> node   (mise core:node, translated to aqua:nodejs/node)
+#   go:    -> go     (mise core:go, translated to aqua:golang/go)
+#   pip:   -> uv     (its own aqua registry entry)
+#
+# cargo: -> rust is deliberately ABSENT. aqua packages `rustup-init`, not a
+# toolchain, so a translated entry would land with no `cargo` on PATH; a
+# consumer that wants cargo: sources bundles a rust entry of its own.
+#
+# The DefaultSeed template names (gopls, typescript-language-server,
+# typescript, pyright) also left this list: no registry carries them, so they
+# are curation and belong to whichever product seeds them. Each consumer
+# verifies its own bundled tools at image build with `verify -overlay`.
+#
 # backend runtimes (auto-adopted dependencies)
 go
 node
 uv
+# a registry-backed seed name, kept because every consumer seeds it
+rust-analyzer
+gh
