@@ -1,39 +1,20 @@
 #!/bin/bash
-# Compile the tool catalog from the PINNED mise + aqua registry refs in
-# registries.env and publish it as a dated GitHub release. Renovate bumps
-# the pins and the merge triggers .github/workflows/publish.yaml (push
-# trigger), so releases follow upstream at the Renovate sweep cadence; the
-# workflow's daily cron is a self-heal retry only (the idempotence stamp
-# below makes it a no-op while the newest release already matches the
-# pins). Run locally with DRY_RUN=1 to produce ./tool-catalog.json without
-# touching GitHub releases.
-#
-# Registry tarballs are fetched BY COMMIT (the tag's dereferenced commit,
-# pinned next to the tag): git content addressing keeps the extracted tree
-# stable while archive bytes may vary, so no tarball checksum is kept —
-# integrity rests on TLS to GitHub plus the reviewed pin, and the release
-# notes record the exact tags AND commits ingested, so a moved upstream
-# tag lands as a visible digest-only Renovate PR and re-publishes rather
-# than skips.
+# Compile the tool catalog from the registry pins in registries.env and publish
+# it as a dated GitHub release. Tarballs are fetched BY COMMIT, so a moved
+# upstream tag re-publishes rather than skips and no tarball checksum is kept.
 #
 # Environment:
-#   TOOLCATALOG_VERSION  (required) toolbelt tag the compiler runs at, e.g. v3.0.1;
-#                        the module path's major suffix is derived from it
-#   TOOLCATALOG_RUN      (optional) override the compiler invocation; used by
-#                        local simulation to run a checked-out lane instead of
-#                        the published module
-#   DRY_RUN=1            (optional) compile + verify only; write the artifact
-#                        to ./tool-catalog.json and skip release creation
+#   TOOLCATALOG_VERSION  (required) toolbelt tag the compiler runs at, e.g. v3.0.1
+#   TOOLCATALOG_RUN      (optional) override the compiler invocation
+#   DRY_RUN=1            (optional) compile + verify only, write
+#                        ./tool-catalog.json, create no release
 set -euo pipefail
 
 TOOLCATALOG_VERSION="${TOOLCATALOG_VERSION:?set TOOLCATALOG_VERSION (toolbelt tag, e.g. v3.0.1)}"
-# Go carries the major version in the module PATH from v2 on, so the suffix is
-# DERIVED from the pin rather than written beside it. Renovate bumps this pin
-# across a major boundary (it moved v2.5.2 -> v3.0.1 on 2026-08-21) and cannot
-# rewrite a hardcoded path, so a written suffix asks the proxy for
-# toolbelt/v2@v3.0.1 — an invalid combination that stalled every publish until
-# the two could no longer disagree. Same fail-loudly posture as the pin guards
-# below: a tag this cannot parse stops here, not at a 404 mid-fetch.
+# Derived, never written beside the pin: Renovate bumps this across a major
+# boundary and cannot rewrite a hardcoded path, so a written suffix would ask
+# the proxy for toolbelt/v2@v3.0.1 and stall every publish (hit 2026-08-21).
+# A tag this cannot parse stops here, not at a 404 mid-fetch.
 TOOLCATALOG_MAJOR="${TOOLCATALOG_VERSION%%.*}"
 case "$TOOLCATALOG_MAJOR" in
   v0 | v1) TOOLCATALOG_MODULE="github.com/cplieger/toolbelt" ;;
@@ -51,9 +32,8 @@ REPO="${GITHUB_REPOSITORY:-cplieger/tool-catalog}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FLOOR="$ROOT/required-floor.txt"
 
-# Pinned registry refs (Renovate-bumped tag+commit pairs; see the file's
-# header). Guard every value: a malformed pin must fail here, loudly,
-# not as a 404 mid-fetch or a tarball of the wrong tree.
+# Guard every pin: a malformed value must fail here, loudly, not as a 404
+# mid-fetch or a tarball of the wrong tree.
 # shellcheck source=/dev/null
 . "$ROOT/registries.env"
 for v in MISE_REF MISE_COMMIT AQUA_REF AQUA_COMMIT; do
@@ -69,19 +49,16 @@ for v in MISE_COMMIT AQUA_COMMIT; do
   fi
 done
 REFS="mise=${MISE_REF},aqua=${AQUA_REF}"
-# The idempotence stamp carries tags AND commits (a moved upstream tag —
-# same name, different commit — must re-publish, never skip), the compiler
-# version, and a digest of the required floor: a floor change must
-# re-publish so the merge verifies the new floor immediately, instead of
-# hiding a regression until the next pin bump fails days later.
+# The stamp carries commits as well as tags (a moved tag must re-publish, never
+# skip) and a floor digest, so a floor change re-publishes and the merge
+# verifies the new floor instead of hiding a regression until the next bump.
 FLOOR_DIGEST=$(sha256sum "$FLOOR" | cut -c1-12)
 STAMP="refs: mise=${MISE_REF}@${MISE_COMMIT},aqua=${AQUA_REF}@${AQUA_COMMIT} lane: ${TOOLCATALOG_VERSION} floor: ${FLOOR_DIGEST}"
 echo "publish: ${STAMP}"
 
-# Idempotent daily cron: skip when the newest release already carries this
-# exact stamp (tags + commits + lane). The marker read is hardened against
-# CRLF from web-UI note edits and against multiple refs: lines; any marker
-# breakage fails SAFE (a duplicate publish, never a skipped needed one).
+# Skip when the newest release already carries this exact stamp. The marker read
+# tolerates CRLF from web-UI note edits and pins one line; any breakage fails
+# SAFE, as a duplicate publish rather than a skipped needed one.
 if [ "$DRY_RUN" != "1" ]; then
   last=$(gh release view --repo "$REPO" --json body --jq .body 2>/dev/null | tr -d '\r' | grep -m1 -F 'refs: ' || true)
   if [ "$last" = "$STAMP" ]; then
@@ -92,20 +69,16 @@ fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-# Fixed extraction destinations (--strip-components=1): the tarball's
-# top-level directory name is codeload convention, not a documented
-# contract, so do not depend on its exact shape.
+# --strip-components=1: the tarball's top-level directory name is codeload
+# convention, not a documented contract, so nothing may depend on its shape.
 mkdir -p "$WORK/mise" "$WORK/aqua"
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 20 --max-time 300 --retry 3 --retry-delay 5 -fsSL \
   "https://codeload.github.com/jdx/mise/tar.gz/${MISE_COMMIT}" | tar -xz --strip-components=1 -C "$WORK/mise"
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 20 --max-time 300 --retry 3 --retry-delay 5 -fsSL \
   "https://codeload.github.com/aquaproj/aqua-registry/tar.gz/${AQUA_COMMIT}" | tar -xz --strip-components=1 -C "$WORK/aqua"
 
-# Compile (the lane embeds its base overlays, both registry LICENSE texts,
-# and a generated timestamp) and verify the engine floor: the seed template
-# names plus the backend runtimes every consumer relies on. App-specific
-# required sets stay in each consumer (verified at image build and again at
-# every runtime refresh).
+# Verify the ENGINE floor only: seed template names plus the backend runtimes
+# every consumer relies on. App-specific required sets stay in each consumer.
 $TOOLCATALOG_RUN \
   -mise "$WORK/mise/registry" \
   -aqua "$WORK/aqua/pkgs" \
@@ -126,18 +99,15 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   TAG="${TAG}.$(date -u +%H%M)" # same-day re-run with changed refs
 fi
 
-# --latest is explicit: every release here tags the same default-branch
-# commit with non-semver dated tags, exactly the shape where GitHub's
-# automatic latest selection (created_at + semver tie-breakers) is
-# degenerate. The consumer contract IS the latest pointer; never leave
-# it to the automatic mapping.
+# --latest is explicit: these are non-semver dated tags on the same commit,
+# exactly where GitHub's automatic latest selection is degenerate, and the
+# consumer contract IS the latest pointer.
 # shellcheck disable=SC2016 # the backticks are a markdown code span in the notes, not a command substitution
 NOTES=$(printf '%s\nentries: %s\n\nCompiled from the mise registry and the aqua registry (both MIT; license texts embedded in the artifact). Consumers fetch `releases/latest/download/tool-catalog.json`.\n' "$STAMP" "$ENTRIES")
 gh release create "$TAG" "$WORK/tool-catalog.json" --repo "$REPO" --title "$TAG" --latest --notes "$NOTES"
 
-# Post-publish contract check: the stable latest URL must now serve THIS
-# release's asset. Fail loudly if the latest pointer did not move — a
-# broken pointer is exactly the failure consumers cannot see.
+# The stable latest URL must now serve THIS release's asset: a pointer that did
+# not move is exactly the failure consumers cannot see.
 LOCATION=$(curl -sI -o /dev/null -w '%{redirect_url}' "https://github.com/${REPO}/releases/latest/download/tool-catalog.json")
 case "$LOCATION" in
   *"/${TAG}/"*) echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified" ;;
