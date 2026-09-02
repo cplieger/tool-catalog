@@ -69,6 +69,19 @@ jobs:
       - name: Compile and publish
         env:
           GH_TOKEN: ${{ github.token }}
+          # setup-go exports GOTOOLCHAIN=local, and `go-version: stable` above
+          # resolves ONLY from actions/go-versions' manifest, which is a separate
+          # human-merged PR that lags an upstream Go patch tag by hours. Renovate
+          # bumps toolbelt's own `go` directive within that lag, so the `go run`
+          # in publish.sh hits `requires go >= X (running X-1;
+          # GOTOOLCHAIN=local)` and refuses to fetch the toolchain the module
+          # asks for. Measured on
+          # go1.27.1: 6 consecutive failed publishes over 15h01m, from the
+          # directive bump to the manifest merge. `auto` lets Go fetch it; the
+          # toolchain arrives as a checksum-verified module, and this repo has no
+          # go.mod, so nothing here has a claim on a specific compiler. Same
+          # workaround, same reason, as go-ci.yaml's gopls install.
+          GOTOOLCHAIN: auto
           # The depName tracks the CURRENT major; publish.sh derives the module
           # path's suffix from the tag, so a Renovate bump across a major
           # boundary needs no second edit here.
