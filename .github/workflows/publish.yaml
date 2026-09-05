@@ -86,5 +86,5 @@ jobs:
           # path's suffix from the tag, so a Renovate bump across a major
           # boundary needs no second edit here.
           # renovate: datasource=go depName=github.com/cplieger/toolbelt/v3
-          TOOLCATALOG_VERSION: v3.2.8
+          TOOLCATALOG_VERSION: v3.2.9
         run: bash scripts/publish.sh
