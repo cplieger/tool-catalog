@@ -107,12 +107,25 @@ NOTES=$(printf '%s\nentries: %s\n\nCompiled from the mise registry and the aqua 
 gh release create "$TAG" "$WORK/tool-catalog.json" --repo "$REPO" --title "$TAG" --latest --notes "$NOTES"
 
 # The stable latest URL must now serve THIS release's asset: a pointer that did
-# not move is exactly the failure consumers cannot see.
-LOCATION=$(curl -sI -o /dev/null -w '%{redirect_url}' "https://github.com/${REPO}/releases/latest/download/tool-catalog.json")
-case "$LOCATION" in
-  *"/${TAG}/"*) echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified" ;;
-  *)
+# not move is exactly the failure consumers cannot see. GitHub repoints that
+# redirect a moment AFTER the release exists, so poll it: run 34770660949 read
+# it 47ms after creation, got the previous tag, and failed a publish that was
+# correct (the four preceding successful runs measured 89-208ms).
+LATEST_URL="https://github.com/${REPO}/releases/latest/download/tool-catalog.json"
+ATTEMPTS=10
+attempt=1
+while :; do
+  LOCATION=$(curl -sI -o /dev/null -w '%{redirect_url}' --connect-timeout 10 --max-time 20 "$LATEST_URL" || true)
+  case "$LOCATION" in
+    *"/${TAG}/"*)
+      echo "publish: released ${TAG} (${ENTRIES} entries); latest pointer verified"
+      break
+      ;;
+  esac
+  if [ "$attempt" -ge "$ATTEMPTS" ]; then
     echo "publish: ERROR released ${TAG} but the latest download URL resolves to: ${LOCATION}" >&2
     exit 1
-    ;;
-esac
+  fi
+  attempt=$((attempt + 1))
+  sleep 3
+done
