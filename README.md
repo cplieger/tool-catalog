@@ -2,53 +2,57 @@
 
 [![License](https://img.shields.io/github/license/cplieger/tool-catalog)](LICENSE)
 
-> Continuously published tool catalog for the [toolbelt](https://github.com/cplieger/toolbelt) engine
+tool-catalog publishes `tool-catalog.json`, a list of about 900 developer tools and how to install each one, for the [toolbelt](https://github.com/cplieger/toolbelt) Go engine. It joins the mise and aqua registries into one file and rebuilds it after each release of either registry. Any program can download the file, and it uses toolbelt's `Catalog` format. The repository is licensed under Apache-2.0.
 
-The publish workflow joins the [mise registry](https://github.com/jdx/mise)
-(tool names, descriptions, aliases, preferred install backends) with the
-[aqua registry](https://github.com/aquaproj/aqua-registry) (per-package binary
-install definitions with checksum sources) and compiles them into one
-`tool-catalog.json` with toolbelt's `toolcatalog` compiler. It verifies that
-the engine's required floor of tools resolves for linux amd64 and arm64,
-then publishes the result as a dated release.
+## What a release contains
 
-Both registries are pinned by tag and commit in `registries.env`.
-[Renovate](https://docs.renovatebot.com/) bumps the pins as upstream
-releases and each merged bump triggers a publish. Releases follow upstream
-within hours, and each one is traceable to an exact reviewed pin.
-
-Consumers fetch the newest artifact from a stable URL:
+Each release holds one file of about 1.1 MB. Consumers fetch the newest one from a stable URL:
 
 ```text
 https://github.com/cplieger/tool-catalog/releases/latest/download/tool-catalog.json
 ```
 
-The toolbelt engine keeps its last good catalog on any download or
-validation failure, so a bad registry day degrades to yesterday's knowledge
-instead of breaking installs.
+The file holds:
 
-## What a release contains
+- About 900 tools that run on Linux, each with its mise registry name, description, aliases and one install source: `aqua:`, `release:`, `npm:`, `pip:`, `go:` or `cargo:`. The source is the first one in the tool's mise registry list that toolbelt can install. Tools the registry marks for other systems only are left out.
+- For each `aqua:` tool, the aqua registry's install definition. When aqua records it, the definition also says where the tool's release checksums are published.
+- The registry tools that have no usable install source, each with the reason, such as a mise `vfox:` plugin or no Linux build.
+- The tool each package source needs installed first: `node` for `npm:`, `uv` for `pip:`, `go` for `go:` and `rust` for `cargo:`.
+- The registry versions it was compiled from, the MIT license texts of both registries and the time it was compiled.
 
-- `tool-catalog.json`: ~700 tool entries with install sources
-  (`aqua:`/`npm:`/`pip:`/`cargo:`/`go:`), embedded aqua install definitions,
-  descriptions, aliases, dependency and language-server markers, the upstream
-  registry refs it was compiled from, both registries' MIT license texts, and
-  a generation timestamp.
+The format is the `Catalog` type of the toolbelt Go module, documented on [pkg.go.dev](https://pkg.go.dev/github.com/cplieger/toolbelt/v3#Catalog). Each release is compiled by the toolbelt version that `.github/workflows/publish.yaml` pins, so the file matches that version's format. An older toolbelt engine ignores the fields a newer one added. A release carries no signature or separate checksum file.
 
-Each release's notes record the exact registry tags and commits it was
-compiled from (the pins in `registries.env` at that commit). Registry
-tarballs are fetched by commit, so a moved upstream tag cannot silently
-change what a run ingested.
+## Using it with toolbelt
+
+toolbelt's `DefaultCatalogURL` is the URL above. With `Config.Refresh` set, the engine downloads the catalog on its `Interval` and whenever you call `RefreshCatalog`. An `Interval` of zero keeps downloads on demand only. `ParseCatalogRefresh` turns a setting such as `24h` or `off` into that interval, with 24 hours as its default. The engine checks each download, including that it has the tool names you list in `Require`. It saves the download under its config folder and keeps its last good catalog when a download or a check fails. The [toolbelt README](https://github.com/cplieger/toolbelt) shows the setup.
+
+Consider mise's [`registry_floating` setting](https://mise.jdx.dev/configuration/settings.html) if you want mise itself to use the newest registries. It fetches the latest mise and aqua registries and falls back to the copies bundled with your mise release.
+
+## How each release is built
+
+[`registries.env`](registries.env) pins both registries by tag and commit. [Renovate](https://docs.renovatebot.com/) opens a pull request to bump a pin when its registry releases, and each merged bump runs `scripts/publish.sh`. The script runs these steps in order:
+
+- It stops early, publishing nothing, when the newest release already has the same registry commits, toolbelt version and `required-floor.txt`.
+- It downloads each registry by commit, so a moved upstream tag cannot change what a run reads.
+- It compiles the catalog with toolbelt's `toolcatalog` command, at the toolbelt version the workflow pins as `TOOLCATALOG_VERSION`.
+- It checks that every tool in [`required-floor.txt`](required-floor.txt) has install data for Linux on amd64 and arm64. The file lists `go`, `node` and `uv`, which toolbelt needs to install `go:`, `npm:` and `pip:` tools, plus `rust-analyzer` and `gh`.
+- It publishes a release tagged with the date, such as `v2026.10.03`, or with the time added for a second release that day, such as `v2026.10.03.1309`. Then it checks that the latest URL points at the new release.
+
+Each release's notes record the registry tags and commits, the toolbelt version, a digest of `required-floor.txt` and the number of tools. If a download, the compile or the floor check fails, nothing is published and the previous release stays the latest. A daily run at 05:17 UTC publishes again when an earlier publish failed and does nothing otherwise.
 
 ## Building locally
 
+From the repository root:
+
 ```sh
-TOOLCATALOG_VERSION=v2.2.4 DRY_RUN=1 bash scripts/publish.sh
+TOOLCATALOG_VERSION=$(sed -n 's/.*TOOLCATALOG_VERSION: //p' .github/workflows/publish.yaml) DRY_RUN=1 bash scripts/publish.sh
 ```
 
-`DRY_RUN=1` compiles and verifies the pinned registry refs and writes
-`./tool-catalog.json` without creating a GitHub release. Requires `curl`,
-`jq`, and a Go toolchain (the `gh` CLI is only needed for publishing).
+`TOOLCATALOG_VERSION` is the toolbelt version whose compiler runs, and the command reads the one the workflow pins. `DRY_RUN=1` compiles and checks the pinned registry versions and writes `./tool-catalog.json` without creating a GitHub release. It needs `curl`, `jq`, `tar` and a Go toolchain. The `gh` CLI is needed only for publishing.
+
+## Credits
+
+The tool names, descriptions, aliases and install-source choices come from the [mise registry](https://mise.jdx.dev/registry.html). The install definitions come from the [aqua registry](https://github.com/aquaproj/aqua-registry). Both are MIT-licensed. toolbelt's `toolcatalog` command, by the same author, compiles them into one file.
 
 ## Disclaimer
 
@@ -58,7 +62,6 @@ This project was built with AI-assisted tooling using [Claude](https://claude.co
 
 ## License
 
-This repository's code is licensed under [Apache-2.0](LICENSE). The published
-`tool-catalog.json` embeds data derived from the mise and aqua registries
-(both MIT); their copyright and permission notices travel inside the artifact
-itself, as MIT requires.
+Apache-2.0. See [LICENSE](LICENSE).
+
+The published `tool-catalog.json` embeds data derived from the mise and aqua registries (both MIT); their copyright and permission notices travel inside the artifact itself, as MIT requires.
