@@ -35,7 +35,7 @@ Consider mise's [`registry_floating` setting](https://mise.jdx.dev/configuration
 - It stops early, publishing nothing, when the newest release already has the same registry commits, toolbelt version and `required-floor.txt`.
 - It downloads each registry by commit, so a moved upstream tag cannot change what a run reads.
 - It compiles the catalog with toolbelt's `toolcatalog` command, at the toolbelt version the workflow pins as `TOOLCATALOG_VERSION`.
-- It checks that every tool in [`required-floor.txt`](required-floor.txt) has install data for Linux on amd64 and arm64. The file lists `go`, `node` and `uv`, which toolbelt needs to install `go:`, `npm:` and `pip:` tools, plus `rust-analyzer` and `gh`.
+- It checks that every tool in [`required-floor.txt`](required-floor.txt) has install data for Linux on amd64 and arm64. The file lists `go`, `node` and `uv`, which toolbelt needs to install `go:`, `npm:` and `pip:` tools. It also lists `rust-analyzer`, the only one of toolbelt's starter tools that the registries carry.
 - It publishes a release tagged with the date, such as `v2026.10.03`, or with the time added for a second release that day, such as `v2026.10.03.1309`. Then it checks that the latest URL points at the new release.
 
 Each release's notes record the registry tags and commits, the toolbelt version, a digest of `required-floor.txt` and the number of tools. If a download, the compile or the floor check fails, nothing is published and the previous release stays the latest. A daily run at 05:17 UTC publishes again when an earlier publish failed and does nothing otherwise.
