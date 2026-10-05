@@ -54,6 +54,10 @@ TOOLCATALOG_VERSION=$(sed -n 's/.*TOOLCATALOG_VERSION: //p' .github/workflows/pu
 
 The tool names, descriptions, aliases and install-source choices come from the [mise registry](https://mise.jdx.dev/registry.html). The install definitions come from the [aqua registry](https://github.com/aquaproj/aqua-registry). Both are MIT-licensed. toolbelt's `toolcatalog` command, by the same author, compiles them into one file.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Disclaimer
 
 This project is built with care and follows security best practices, but it is intended for personal / self-hosted use. No guarantees of fitness for production environments. Use at your own risk.
