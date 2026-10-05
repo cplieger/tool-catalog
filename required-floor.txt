@@ -2,8 +2,9 @@
 # `toolcatalog verify` before a release is cut.
 #
 # This is the floor for a GENERAL catalog: the tools the toolbelt engine itself
-# adopts as backends for its own source kinds. Nothing here is a product's
-# choice -- every name resolves from mise/aqua registry data alone.
+# adopts as backends for its own source kinds, plus the one engine seed template
+# a registry carries. Nothing here is a product's choice -- every name resolves
+# from mise/aqua registry data alone.
 #
 #   npm:   -> node   (mise core:node, translated to aqua:nodejs/node)
 #   go:    -> go     (mise core:go, translated to aqua:golang/go)
@@ -13,15 +14,16 @@
 # toolchain, so a translated entry would land with no `cargo` on PATH; a
 # consumer that wants cargo: sources bundles a rust entry of its own.
 #
-# The DefaultSeed template names (gopls, typescript-language-server,
-# typescript, pyright) also left this list: no registry carries them, so they
-# are curation and belong to whichever product seeds them. Each consumer
-# verifies its own bundled tools at image build with `verify -overlay`.
+# Of the DefaultSeed templates (gopls, typescript-language-server, pyright,
+# rust-analyzer), only rust-analyzer is in a registry. The other three are
+# curation and belong to whichever product seeds them; each consumer verifies
+# its own bundled tools at image build with `verify -overlay`. No forge CLI is
+# listed: the engine neither seeds nor runs one, so a product that needs gh
+# names it in its own required set.
 #
 # backend runtimes (auto-adopted dependencies)
 go
 node
 uv
-# a registry-backed seed name, kept because every consumer seeds it
+# the DefaultSeed template a registry carries
 rust-analyzer
-gh
