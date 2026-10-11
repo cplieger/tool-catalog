@@ -1,7 +1,7 @@
 # DRY_RUN artifact from scripts/publish.sh
 /tool-catalog.json
 
-# Kiro skill artifacts (app-review, judgement, steering-maintenance)
+# Local agent state
 **/.app-review/
 **/.judgement/
 **/.steering-maintenance/
