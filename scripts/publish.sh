@@ -88,9 +88,30 @@ $TOOLCATALOG_RUN verify -catalog "$WORK/tool-catalog.json" -require "$FLOOR"
 
 ENTRIES=$(jq '.entries | length' "$WORK/tool-catalog.json")
 
+# The stamp tracks inputs, and most input bumps (a toolbelt release, a registry
+# tag that touches no compiled entry) leave the catalog unchanged apart from its
+# build time and the tag labels in `refs`. Publishing that serves no consumer,
+# so compare the content without those two fields. A failed read of the latest
+# asset falls through to a publish, the same fail-safe as the stamp read.
+prev="$WORK/latest.json"
+unchanged=0
+if gh release download --repo "$REPO" --pattern tool-catalog.json --output "$prev" 2>/dev/null \
+  && cmp -s <(jq -cS 'del(.generated, .refs)' "$prev") <(jq -cS 'del(.generated, .refs)' "$WORK/tool-catalog.json"); then
+  unchanged=1
+fi
+
 if [ "$DRY_RUN" = "1" ]; then
   cp "$WORK/tool-catalog.json" ./tool-catalog.json
-  echo "publish: DRY RUN — would release ${ENTRIES} entries (${STAMP}); artifact at ./tool-catalog.json"
+  if [ "$unchanged" = "1" ]; then
+    echo "publish: DRY RUN — content matches the latest release, would publish nothing (${STAMP}); artifact at ./tool-catalog.json"
+  else
+    echo "publish: DRY RUN — would release ${ENTRIES} entries (${STAMP}); artifact at ./tool-catalog.json"
+  fi
+  exit 0
+fi
+
+if [ "$unchanged" = "1" ]; then
+  echo "publish: catalog content matches the latest release (${ENTRIES} entries); nothing to publish"
   exit 0
 fi
 
