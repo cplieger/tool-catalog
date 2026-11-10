@@ -15,6 +15,7 @@ https://github.com/cplieger/tool-catalog/releases/latest/download/tool-catalog.j
 The file holds:
 
 - About 900 tools that run on Linux, each with its mise registry name, description, aliases and one install source: `aqua:`, `release:`, `npm:`, `pip:`, `go:` or `cargo:`. The source is the first one in the tool's mise registry list that toolbelt can install. Tools the registry marks for other systems only are left out.
+- The cplieger tools neither registry lists, from [`first-party.json`](first-party.json). Each installs from its GitHub release, checked against the `.sha256` file published beside each binary.
 - For each `aqua:` tool, the aqua registry's install definition. When aqua records it, the definition also says where the tool's release checksums are published.
 - The registry tools that have no usable install source, each with the reason, such as a mise `vfox:` plugin or no Linux build.
 - The tool each package source needs installed first: `node` for `npm:`, `uv` for `pip:`, `go` for `go:` and `rust` for `cargo:`.
@@ -32,14 +33,14 @@ Consider mise's [`registry_floating` setting](https://mise.jdx.dev/configuration
 
 [`registries.env`](registries.env) pins both registries by tag and commit. [Renovate](https://docs.renovatebot.com/) opens a pull request to bump a pin when its registry releases, and each merged bump runs `scripts/publish.sh`. The script runs these steps in order:
 
-- It stops early, publishing nothing, when the newest release already has the same registry commits, toolbelt version and `required-floor.txt`.
+- It stops early, publishing nothing, when the newest release already has the same registry commits, toolbelt version, `required-floor.txt` and `first-party.json`.
 - It downloads each registry by commit, so a moved upstream tag cannot change what a run reads.
-- It compiles the catalog with toolbelt's `toolcatalog` command, at the toolbelt version the workflow pins as `TOOLCATALOG_VERSION`.
+- It compiles the catalog with toolbelt's `toolcatalog` command, at the toolbelt version the workflow pins as `TOOLCATALOG_VERSION`, and adds the entries in `first-party.json`.
 - It checks that every tool in [`required-floor.txt`](required-floor.txt) has install data for Linux on amd64 and arm64. The file lists `go`, `node` and `uv`, which toolbelt needs to install `go:`, `npm:` and `pip:` tools. It also lists `rust-analyzer`, the only one of toolbelt's starter tools that the registries carry.
 - It stops, publishing nothing, when the new catalog matches the latest release's apart from its build time and registry tag names.
 - It publishes a release tagged with the date, such as `v2026.10.03`, or with the time added for a second release that day, such as `v2026.10.03.1309`. Then it checks that the latest URL points at the new release.
 
-Each release's notes record the registry tags and commits, the toolbelt version, a digest of `required-floor.txt` and the number of tools. If a download, the compile or the floor check fails, nothing is published and the previous release stays the latest. A daily run at 05:17 UTC publishes again when an earlier publish failed and publishes nothing otherwise.
+Each release's notes record the registry tags and commits, the toolbelt version, digests of `required-floor.txt` and `first-party.json`, and the number of tools. If a download, the compile or the floor check fails, nothing is published and the previous release stays the latest. A daily run at 05:17 UTC publishes again when an earlier publish failed and publishes nothing otherwise.
 
 ## Building locally
 

@@ -27,6 +27,7 @@ on:
       - .github/workflows/publish.yaml
       - scripts/publish.sh
       - required-floor.txt
+      - first-party.json
   schedule:
     - cron: "17 5 * * *"
   workflow_dispatch:

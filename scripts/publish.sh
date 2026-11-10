@@ -31,6 +31,8 @@ REPO="${GITHUB_REPOSITORY:-cplieger/tool-catalog}"
 # (the local-simulation `go run -C <lane> .` case).
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FLOOR="$ROOT/required-floor.txt"
+# cplieger tools neither registry lists, merged over the registry data at compile.
+FIRST_PARTY="$ROOT/first-party.json"
 
 # Guard every pin: a malformed value must fail here, loudly, not as a 404
 # mid-fetch or a tarball of the wrong tree.
@@ -50,10 +52,11 @@ for v in MISE_COMMIT AQUA_COMMIT; do
 done
 REFS="mise=${MISE_REF},aqua=${AQUA_REF}"
 # The stamp carries commits as well as tags (a moved tag must re-publish, never
-# skip) and a floor digest, so a floor change re-publishes and the merge
-# verifies the new floor instead of hiding a regression until the next bump.
+# skip) and the floor and first-party digests, so a change to either file
+# re-publishes and the merge verifies it instead of waiting for the next bump.
 FLOOR_DIGEST=$(sha256sum "$FLOOR" | cut -c1-12)
-STAMP="refs: mise=${MISE_REF}@${MISE_COMMIT},aqua=${AQUA_REF}@${AQUA_COMMIT} lane: ${TOOLCATALOG_VERSION} floor: ${FLOOR_DIGEST}"
+FIRST_PARTY_DIGEST=$(sha256sum "$FIRST_PARTY" | cut -c1-12)
+STAMP="refs: mise=${MISE_REF}@${MISE_COMMIT},aqua=${AQUA_REF}@${AQUA_COMMIT} lane: ${TOOLCATALOG_VERSION} floor: ${FLOOR_DIGEST} first-party: ${FIRST_PARTY_DIGEST}"
 echo "publish: ${STAMP}"
 
 # Skip when the newest release already carries this exact stamp. The marker read
@@ -82,6 +85,7 @@ curl --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 20 --ma
 $TOOLCATALOG_RUN \
   -mise "$WORK/mise/registry" \
   -aqua "$WORK/aqua/pkgs" \
+  -overlay "$FIRST_PARTY" \
   -refs "$REFS" \
   -out "$WORK/tool-catalog.json"
 $TOOLCATALOG_RUN verify -catalog "$WORK/tool-catalog.json" -require "$FLOOR"
@@ -124,7 +128,7 @@ fi
 # exactly where GitHub's automatic latest selection is degenerate, and the
 # consumer contract IS the latest pointer.
 # shellcheck disable=SC2016 # the backticks are a markdown code span in the notes, not a command substitution
-NOTES=$(printf '%s\nentries: %s\n\nCompiled from the mise registry and the aqua registry (both MIT; license texts embedded in the artifact). Consumers fetch `releases/latest/download/tool-catalog.json`.\n' "$STAMP" "$ENTRIES")
+NOTES=$(printf '%s\nentries: %s\n\nCompiled from the mise registry and the aqua registry (both MIT; license texts embedded in the artifact), plus the cplieger tools in first-party.json. Consumers fetch `releases/latest/download/tool-catalog.json`.\n' "$STAMP" "$ENTRIES")
 gh release create "$TAG" "$WORK/tool-catalog.json" --repo "$REPO" --title "$TAG" --latest --notes "$NOTES"
 
 # The stable latest URL must now serve THIS release's asset: a pointer that did

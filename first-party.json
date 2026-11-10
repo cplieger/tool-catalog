@@ -1,0 +1,9 @@
+{
+  "entries": {
+    "grelot": {
+      "name": "grelot",
+      "description": "Messaging platform for the coding agents on your machines, with folder threads and file reservations",
+      "source": "release:github/cplieger/grelot"
+    }
+  }
+}
