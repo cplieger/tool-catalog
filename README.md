@@ -15,7 +15,7 @@ https://github.com/cplieger/tool-catalog/releases/latest/download/tool-catalog.j
 The file holds:
 
 - About 900 tools that run on Linux, each with its mise registry name, description, aliases and one install source: `aqua:`, `release:`, `npm:`, `pip:`, `go:` or `cargo:`. The source is the first one in the tool's mise registry list that toolbelt can install. Tools the registry marks for other systems only are left out.
-- The cplieger tools neither registry lists, from [`first-party.json`](first-party.json). Each installs from its GitHub release, checked against the `.sha256` file published beside each binary.
+- The cplieger tools the mise registry does not list, from [`first-party.json`](first-party.json). Each installs from its GitHub release, checked against the `.sha256` file published beside each binary: through its aqua registry definition when aqua lists it, otherwise directly.
 - For each `aqua:` tool, the aqua registry's install definition. When aqua records it, the definition also says where the tool's release checksums are published.
 - The registry tools that have no usable install source, each with the reason, such as a mise `vfox:` plugin or no Linux build.
 - The tool each package source needs installed first: `node` for `npm:`, `uv` for `pip:`, `go` for `go:` and `rust` for `cargo:`.
