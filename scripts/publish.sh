@@ -31,7 +31,7 @@ REPO="${GITHUB_REPOSITORY:-cplieger/tool-catalog}"
 # (the local-simulation `go run -C <lane> .` case).
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FLOOR="$ROOT/required-floor.txt"
-# cplieger tools neither registry lists, merged over the registry data at compile.
+# cplieger tools the mise registry does not list, merged over the registry data at compile.
 FIRST_PARTY="$ROOT/first-party.json"
 
 # Guard every pin: a malformed value must fail here, loudly, not as a 404
